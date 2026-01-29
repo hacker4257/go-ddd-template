@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/hacker4257/go-ddd-template/internal/pkg/metrics"
 )
 
 type statusWriter struct {
@@ -29,10 +31,17 @@ func (w *statusWriter) Write(p []byte) (int, error) {
 func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			sw := &statusWriter{ResponseWriter: w}
+			metrics.HTTPInFlight.Add(1)
+			metrics.HTTPRequestsTotal.Add(1)
 			start := time.Now()
+			
+			sw := &statusWriter{ResponseWriter: w}
 
 			next.ServeHTTP(sw, r)
+
+			metrics.HTTPInFlight.Add(-1)
+    		metrics.IncStatus(sw.status)
+    		metrics.ObserveHTTPLatency(time.Since(start))
 
 			rid := GetRequestID(r.Context())
 			log.Info("http_request",

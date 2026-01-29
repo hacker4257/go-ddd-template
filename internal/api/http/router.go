@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"expvar"
 	"log/slog"
 	"net/http"
 
@@ -11,7 +12,7 @@ import (
 	appmw "github.com/hacker4257/go-ddd-template/internal/api/http/middleware"
 )
 
-func NewRouter(log *slog.Logger, uh *handler.UserHandler) http.Handler {
+func NewRouter(log *slog.Logger, uh *handler.UserHandler, rh http.Handler) http.Handler {
 	r := chi.NewRouter()
 
 	// 基础稳定中间件
@@ -23,8 +24,10 @@ func NewRouter(log *slog.Logger, uh *handler.UserHandler) http.Handler {
 	r.Use(appmw.AccessLog(log))
 
 	r.Get("/healthz", handler.Healthz)
-	r.Get("/readyz", handler.Readyz)
+	r.Method(http.MethodGet, "/readyz", rh)
 
+	r.Handle("/debug/vars", expvar.Handler())
+	r.Handle("/metrics", expvar.Handler()) // 简单：直接复用 expvar 输出
 	// 给个根路由，方便确认服务启动
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

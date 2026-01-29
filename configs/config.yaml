@@ -32,3 +32,7 @@ kafka:
   consumer_group: "go-ddd-template-worker"
   max_retries: 5
 
+worker:
+  http:
+    addr: ":9091"
+

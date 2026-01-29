@@ -18,8 +18,18 @@ type Config struct {
 	DB   DBConfig   `koanf:"db"`
 	Redis RedisConfig `koanf:"redis"`
 	Kafka KafkaConfig `koanf:"kafka"`
+	Worker WorkerConfig `koanf:"worker"`
 
 }
+
+type WorkerConfig struct {
+	HTTP WorkerHTTPConfig `koanf:"http"`
+}
+
+type WorkerHTTPConfig struct {
+	Addr string `koanf:"addr"`
+}
+
 
 type KafkaConfig struct {
 	Brokers       []string `koanf:"brokers"`
@@ -149,6 +159,10 @@ func Load(path string) (Config, error) {
 
 	if cfg.Kafka.MaxRetries == 0 {
 		cfg.Kafka.MaxRetries = 5 
+	}
+
+	if cfg.Worker.HTTP.Addr == "" { 
+		cfg.Worker.HTTP.Addr = ":9091" 
 	}
 
 

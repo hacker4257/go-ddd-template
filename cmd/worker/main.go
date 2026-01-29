@@ -68,6 +68,8 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
+	startWorkerHTTP(ctx, log, cfg.Worker.HTTP.Addr)
+
 	// ---------- Outbox Dispatcher ----------
 	outboxStore := mysql.NewOutboxStore(db)
 	dispatcher := NewOutboxDispatcher(log, outboxStore, kpub)

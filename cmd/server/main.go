@@ -17,6 +17,7 @@ import (
 	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
 	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/config"
+	"github.com/hacker4257/go-ddd-template/internal/pkg/health"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/logger"
 )
 
@@ -72,10 +73,17 @@ func main() {
 
 	userHandler := handler.NewUserHandler(userSvc)
 
-
+	readyHandler := handler.ReadyHandler{
+	Checker: health.Checker{
+		DB:      db,
+		Redis:   rdb,
+		Brokers: cfg.Kafka.Brokers,
+		Timeout: 2 * time.Second,
+	},
+	}
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler: httpapi.NewRouter(log, userHandler),
+		Handler: httpapi.NewRouter(log, userHandler, readyHandler),
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
 	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
+	"github.com/hacker4257/go-ddd-template/internal/pkg/metrics"
 )
 
 type OutboxDispatcher struct {
@@ -42,6 +43,7 @@ func (d *OutboxDispatcher) drainOnce(ctx context.Context) {
 		d.log.Error("outbox_list_error", slog.Any("err", err))
 		return
 	}
+	metrics.OutboxPolledTotal.Add(int64(len(rows)))
 	for _, r := range rows {
 		// headers json -> []kgo.RecordHeader
 		var hm map[string]string
@@ -59,12 +61,15 @@ func (d *OutboxDispatcher) drainOnce(ctx context.Context) {
 		})
 		if err != nil {
 			d.log.Error("outbox_publish_error", slog.Uint64("id", r.ID), slog.Any("err", err))
+			metrics.OutboxFailedTotal.Add(1)
 			return // 停住，等下一轮重试
 		}
 
 		if err := d.store.MarkSent(ctx, r.ID); err != nil {
 			d.log.Error("outbox_mark_sent_error", slog.Uint64("id", r.ID), slog.Any("err", err))
+			metrics.OutboxFailedTotal.Add(1)
 			return
 		}
+		metrics.OutboxSentTotal.Add(1)
 	}
 }

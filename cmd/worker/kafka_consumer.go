@@ -12,6 +12,7 @@ import (
 	auditapp "github.com/hacker4257/go-ddd-template/internal/app/audit"
 	"github.com/hacker4257/go-ddd-template/internal/infra/idempotency"
 	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
+	"github.com/hacker4257/go-ddd-template/internal/pkg/metrics"
 )
 
 type UserEvent struct {
@@ -79,11 +80,13 @@ func (c *UserConsumer) handleRecord(ctx context.Context, r *kgo.Record) {
 	first, err := c.idem.TryMarkProcessed(ctx, idemKey, 24*time.Hour)
 	if err != nil {
 		c.log.Error("idem_error", slog.Any("err", err))
+		metrics.ConsumerFailedTotal.Add(1)
 		return // 不 commit，后续重试
 	}
 	if !first {
 		// 重复消息：直接 commit 跳过
 		c.cl.CommitRecords(ctx, r)
+		metrics.ConsumerFailedTotal.Add(1)
 		return
 	}
 
@@ -95,6 +98,7 @@ func (c *UserConsumer) handleRecord(ctx context.Context, r *kgo.Record) {
 	if err := json.Unmarshal(r.Value, &evt); err != nil {
 		c.log.Error("event_unmarshal_error", slog.Any("err", err))
 		c.sendDLQ(ctx, r, "unmarshal_error", retry)
+		metrics.ConsumerProcessedTotal.Add(1)
 		c.cl.CommitRecords(ctx, r)
 		return
 	}
