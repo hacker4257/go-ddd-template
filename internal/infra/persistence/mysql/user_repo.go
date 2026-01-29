@@ -19,9 +19,11 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 }
 
 func (r *UserRepo) Create(ctx context.Context, name, email string) (user.User, error) {
+	ex := getExecer(r.db, ctx)
+
 	const q = `INSERT INTO users (name, email) VALUES (?, ?)`
 
-	res, err := r.db.ExecContext(ctx, q, name, email)
+	res, err := ex.ExecContext(ctx, q, name, email)
 	if err != nil {
 		var me *driver.MySQLError
 		if errors.As(err, &me) && me.Number == 1062 {
@@ -39,29 +41,35 @@ func (r *UserRepo) Create(ctx context.Context, name, email string) (user.User, e
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id uint64) (user.User, error) {
+	ex := getExecer(r.db, ctx)
+
 	const q = `SELECT id, name, email, created_at FROM users WHERE id = ? LIMIT 1`
 
 	var u user.User
-	err := r.db.QueryRowContext(ctx, q, id).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+	err := ex.QueryRowContext(ctx, q, id).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user.User{}, user.ErrNotFound
 		}
 		return user.User{}, err
 	}
+
 	return u, nil
 }
 
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (user.User, error) {
+	ex := getExecer(r.db, ctx)
+
 	const q = `SELECT id, name, email, created_at FROM users WHERE email = ? LIMIT 1`
 
 	var u user.User
-	err := r.db.QueryRowContext(ctx, q, email).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+	err := ex.QueryRowContext(ctx, q, email).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user.User{}, user.ErrNotFound
 		}
 		return user.User{}, err
 	}
+
 	return u, nil
 }

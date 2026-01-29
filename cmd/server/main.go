@@ -63,9 +63,12 @@ func main() {
 	}
 	defer kpub.Close()
 
+	transactor := mysql.NewTransactor(db)
+	outboxStore := mysql.NewOutboxStore(db)
+
 	userCache := redis.NewUserCache(rdb)
 	userRepo := mysql.NewUserRepo(db)
-	userSvc := userapp.New(userRepo, userCache, cfg.Redis.UserTTL, kpub, cfg.Kafka.UserTopic)
+	userSvc := userapp.New(userRepo, userCache, cfg.Redis.UserTTL, transactor, outboxStore, cfg.Kafka.UserTopic)
 
 	userHandler := handler.NewUserHandler(userSvc)
 

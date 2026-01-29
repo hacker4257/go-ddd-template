@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+
+	"log/slog"
 
 	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
+	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/config"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/logger"
 )
@@ -25,6 +26,20 @@ func main() {
 		slog.String("proc", "worker"),
 	)
 
+	// MySQL
+	db, err := mysql.Open(mysql.Config{
+		DSN:             cfg.DB.MySQL.DSN,
+		MaxOpenConns:    cfg.DB.MySQL.MaxOpenConns,
+		MaxIdleConns:    cfg.DB.MySQL.MaxIdleConns,
+		ConnMaxLifetime: cfg.DB.MySQL.ConnMaxLifetime,
+	})
+	if err != nil {
+		log.Error("db_open_error", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Kafka Producer
 	kpub, err := kafka.NewProducer(cfg.Kafka.Brokers)
 	if err != nil {
 		log.Error("kafka_producer_error", slog.Any("err", err))
@@ -32,29 +47,20 @@ func main() {
 	}
 	defer kpub.Close()
 
-	log.Info("worker_ready")
-
+	// Outbox store + dispatcher
+	store := mysql.NewOutboxStore(db)
+	dispatcher := NewOutboxDispatcher(log, store, kpub)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 示例：每 5 秒打一条日志，证明 worker 常驻运行
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	go dispatcher.Run(ctx)
+	log.Info("worker_started")
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				log.Info("worker_tick")
-			}
-		}
-	}()
-
+	// graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 	log.Info("worker_shutdown")
+	cancel()
 }

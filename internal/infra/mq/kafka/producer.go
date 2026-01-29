@@ -48,6 +48,12 @@ func (p *Producer) Publish(ctx context.Context, topic string, e event.Event, hea
 	return res.FirstErr()
 }
 
+func (p *Producer) PublishRaw(ctx context.Context, rec *kgo.Record) error {
+	res := p.cl.ProduceSync(ctx, rec)
+	return res.FirstErr()
+}
+
+
 func (p *Producer) Close() error {
 	p.cl.Close()
 	return nil

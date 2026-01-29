@@ -6,24 +6,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hacker4257/go-ddd-template/internal/app/tx"
 	"github.com/hacker4257/go-ddd-template/internal/domain/event"
 	"github.com/hacker4257/go-ddd-template/internal/domain/user"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/trace"
 )
 
+
 type Service struct {
 	repo  user.Repo
 	cache user.Cache
 	ttl   time.Duration
-	
-	pub       event.Publisher
-	userTopic string
 
-
+	tx     tx.Transactor
+	outbox event.Outbox
+	topic  string
 }
 
-func New(repo user.Repo, cache user.Cache, ttl time.Duration, pub event.Publisher, userTopic string) *Service {
-	return &Service{repo: repo, cache: cache, ttl: ttl, pub: pub, userTopic: userTopic}
+
+func New(repo user.Repo, cache user.Cache, ttl time.Duration, tx tx.Transactor, outbox event.Outbox, topic string) *Service {
+	return &Service{repo: repo, cache: cache, ttl: ttl, tx: tx, outbox: outbox, topic: topic}
 }
 
 
@@ -46,33 +48,36 @@ func (s *Service) Create(ctx context.Context, cmd CreateUserCmd) (user.User, err
 		return user.User{}, err
 	}
 	
-	u, err := s.repo.Create(ctx, name, email)
+	var created user.User
+	err := s.tx.WithinTx(ctx, func(tctx context.Context) error {
+		u, err := s.repo.Create(tctx, name, email)
+		if err != nil {
+			return err
+		}
+		created = u
+
+		rid := trace.RequestID(tctx)
+		return s.outbox.Add(tctx, event.OutboxMessage{
+			Topic: s.topic,
+			Key: fmt.Sprintf("%d", u.ID),
+			Type: "UserCreated",
+			Payload: map[string]any{
+				"id": u.ID, "name": u.Name, "email": u.Email,
+			},
+			Headers: map[string]string{
+				"request_id": rid,
+			},
+		})
+	})
 	if err != nil {
 		return user.User{}, err
 	}
-	
-	if s.pub != nil && s.userTopic != "" {
-		rid := trace.RequestID(ctx)
-		_ = s.pub.Publish(ctx, s.userTopic, event.Event{
-			Type:       "UserCreated",
-			Key:        fmt.Sprintf("%d", u.ID),
-			OccurredAt: time.Now(),
-			Payload: map[string]any{
-				"id":    u.ID,
-				"name":  u.Name,
-				"email": u.Email,
-			},
-		}, map[string]string{
-			"request_id": rid,
-		})
-	}
-
 
 	if s.cache != nil {
-		_ = s.cache.Set(ctx, u, s.ttl)
+		_ = s.cache.Set(ctx, created, s.ttl)
 	}
 
-	return u, nil
+	return created, nil
 }
 
 func (s *Service) Get(ctx context.Context, id uint64) (user.User, error) {
