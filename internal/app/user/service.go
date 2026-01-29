@@ -3,16 +3,19 @@ package userapp
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/hacker4257/go-ddd-template/internal/domain/user"
 )
 
 type Service struct {
-	repo user.Repo
+	repo  user.Repo
+	cache user.Cache
+	ttl   time.Duration
 }
 
-func New(repo user.Repo) *Service {
-	return &Service{repo: repo}
+func New(repo user.Repo, cache user.Cache, ttl time.Duration) *Service {
+	return &Service{repo: repo, cache: cache, ttl: ttl}
 }
 
 type CreateUserCmd struct {
@@ -33,10 +36,35 @@ func (s *Service) Create(ctx context.Context, cmd CreateUserCmd) (user.User, err
 	} else if err != nil && err != user.ErrNotFound {
 		return user.User{}, err
 	}
+	
+	u, err := s.repo.Create(ctx, name, email)
+	if err != nil {
+		return user.User{}, err
+	}
 
-	return s.repo.Create(ctx, name, email)
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, u, s.ttl)
+	}
+
+	return u, nil
 }
 
 func (s *Service) Get(ctx context.Context, id uint64) (user.User, error) {
-	return s.repo.GetByID(ctx, id)
+	if s.cache != nil {
+		if u, ok, err := s.cache.Get(ctx, id); err == nil && ok {
+			return u, nil
+		}
+	}
+
+	u, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return user.User{}, err
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, u, s.ttl) // 缓存失败不影响主流程
+	}
+
+	return u, nil
 }
+

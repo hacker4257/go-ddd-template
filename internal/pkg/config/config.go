@@ -16,7 +16,17 @@ type Config struct {
 	HTTP HTTPConfig `koanf:"http"`
 	Log  LogConfig  `koanf:"log"`
 	DB   DBConfig   `koanf:"db"`
+	Redis RedisConfig `koanf:"redis"`
+
 }
+
+type RedisConfig struct {
+	Addr     string        `koanf:"addr"`
+	Password string        `koanf:"password"`
+	DB       int           `koanf:"db"`
+	UserTTL  time.Duration `koanf:"user_ttl"`
+}
+
 
 type AppConfig struct {
 	Name string `koanf:"name"`
@@ -89,7 +99,7 @@ func Load(path string) (Config, error) {
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
 	}
-
+	//mysql
 	if cfg.DB.MySQL.MaxOpenConns == 0 { 
 		cfg.DB.MySQL.MaxOpenConns = 10 
 	}
@@ -97,9 +107,18 @@ func Load(path string) (Config, error) {
 	if cfg.DB.MySQL.MaxIdleConns == 0 { 
 		cfg.DB.MySQL.MaxIdleConns = 5 
 	}
-	
+
 	if cfg.DB.MySQL.ConnMaxLifetime == 0 { 
 		cfg.DB.MySQL.ConnMaxLifetime = 30 * time.Minute 
+	}
+
+	//redis
+	if cfg.Redis.Addr == "" { 
+		cfg.Redis.Addr = "127.0.0.1:6379" 
+	}
+	
+	if cfg.Redis.UserTTL == 0 { 
+		cfg.Redis.UserTTL = 10 * time.Minute 
 	}
 
 

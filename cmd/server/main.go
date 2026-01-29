@@ -16,6 +16,8 @@ import (
 	userapp "github.com/hacker4257/go-ddd-template/internal/app/user"
 	"github.com/hacker4257/go-ddd-template/internal/api/http/handler"
 	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
+	"github.com/hacker4257/go-ddd-template/internal/infra/cache/redis"
+
 
 )
 
@@ -29,7 +31,7 @@ func main() {
 		slog.String("app", cfg.App.Name),
 		slog.String("env", cfg.App.Env),
 	)
-
+	//mysql
 	db, err := mysql.Open(mysql.Config{
 		DSN:             cfg.DB.MySQL.DSN,
 		MaxOpenConns:    cfg.DB.MySQL.MaxOpenConns,
@@ -42,8 +44,22 @@ func main() {
 	}
 	defer db.Close()
 
+	//redis
+	rdb, err := redis.NewClient(redis.Config{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	if err != nil {
+		log.Error("redis_open_error", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer rdb.Close()
+
+	userCache := redis.NewUserCache(rdb)
 	userRepo := mysql.NewUserRepo(db)
-	userSvc := userapp.New(userRepo)
+	userSvc := userapp.New(userRepo, userCache, cfg.Redis.UserTTL)
+
 	userHandler := handler.NewUserHandler(userSvc)
 
 
