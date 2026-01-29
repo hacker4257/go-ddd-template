@@ -22,9 +22,13 @@ type Config struct {
 }
 
 type KafkaConfig struct {
-	Brokers   []string `koanf:"brokers"`
-	UserTopic string   `koanf:"user_topic"`
+	Brokers       []string `koanf:"brokers"`
+	UserTopic     string   `koanf:"user_topic"`
+	UserDLQTopic  string   `koanf:"user_dlq_topic"`
+	ConsumerGroup string   `koanf:"consumer_group"`
+	MaxRetries    int      `koanf:"max_retries"`
 }
+
 
 
 type RedisConfig struct {
@@ -134,6 +138,17 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Kafka.UserTopic == "" { 
 		cfg.Kafka.UserTopic = "user.events" 
+	}
+
+	if cfg.Kafka.UserDLQTopic == "" { 
+		cfg.Kafka.UserDLQTopic = "user.events.dlq" 
+	}
+	if cfg.Kafka.ConsumerGroup == "" { 
+		cfg.Kafka.ConsumerGroup = "go-ddd-template-worker" 
+	}
+
+	if cfg.Kafka.MaxRetries == 0 {
+		cfg.Kafka.MaxRetries = 5 
 	}
 
 

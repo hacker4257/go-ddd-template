@@ -28,3 +28,7 @@ redis:
 kafka:
   brokers: ["127.0.0.1:9092"]
   user_topic: "user.events"
+  user_dlq_topic: "user.events.dlq"
+  consumer_group: "go-ddd-template-worker"
+  max_retries: 5
+
