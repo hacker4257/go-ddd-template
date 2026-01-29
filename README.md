@@ -1,2 +1,8 @@
 # go-ddd-template
-A clean, layered Go project template for building maintainable distributed services. 一个可长期维护的 Go 分层架构模板。
+
+Go 分层架构脚手架
+
+## Run
+```bash
+go run ./cmd/server
+curl http://127.0.0.1:8080/healthz
