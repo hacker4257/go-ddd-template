@@ -2,21 +2,30 @@ package userapp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hacker4257/go-ddd-template/internal/domain/event"
 	"github.com/hacker4257/go-ddd-template/internal/domain/user"
+	"github.com/hacker4257/go-ddd-template/internal/pkg/trace"
 )
 
 type Service struct {
 	repo  user.Repo
 	cache user.Cache
 	ttl   time.Duration
+	
+	pub       event.Publisher
+	userTopic string
+
+
 }
 
-func New(repo user.Repo, cache user.Cache, ttl time.Duration) *Service {
-	return &Service{repo: repo, cache: cache, ttl: ttl}
+func New(repo user.Repo, cache user.Cache, ttl time.Duration, pub event.Publisher, userTopic string) *Service {
+	return &Service{repo: repo, cache: cache, ttl: ttl, pub: pub, userTopic: userTopic}
 }
+
 
 type CreateUserCmd struct {
 	Name  string
@@ -41,6 +50,23 @@ func (s *Service) Create(ctx context.Context, cmd CreateUserCmd) (user.User, err
 	if err != nil {
 		return user.User{}, err
 	}
+	
+	if s.pub != nil && s.userTopic != "" {
+		rid := trace.RequestID(ctx)
+		_ = s.pub.Publish(ctx, s.userTopic, event.Event{
+			Type:       "UserCreated",
+			Key:        fmt.Sprintf("%d", u.ID),
+			OccurredAt: time.Now(),
+			Payload: map[string]any{
+				"id":    u.ID,
+				"name":  u.Name,
+				"email": u.Email,
+			},
+		}, map[string]string{
+			"request_id": rid,
+		})
+	}
+
 
 	if s.cache != nil {
 		_ = s.cache.Set(ctx, u, s.ttl)

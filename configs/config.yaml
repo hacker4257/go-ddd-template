@@ -24,3 +24,7 @@ redis:
   password: ""
   db: 0
   user_ttl: 10m
+
+kafka:
+  brokers: ["127.0.0.1:9092"]
+  user_topic: "user.events"

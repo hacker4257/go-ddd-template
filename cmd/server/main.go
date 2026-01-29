@@ -11,14 +11,13 @@ import (
 	"time"
 
 	httpapi "github.com/hacker4257/go-ddd-template/internal/api/http"
+	"github.com/hacker4257/go-ddd-template/internal/api/http/handler"
+	userapp "github.com/hacker4257/go-ddd-template/internal/app/user"
+	"github.com/hacker4257/go-ddd-template/internal/infra/cache/redis"
+	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
+	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/config"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/logger"
-	userapp "github.com/hacker4257/go-ddd-template/internal/app/user"
-	"github.com/hacker4257/go-ddd-template/internal/api/http/handler"
-	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
-	"github.com/hacker4257/go-ddd-template/internal/infra/cache/redis"
-
-
 )
 
 func main() {
@@ -56,9 +55,17 @@ func main() {
 	}
 	defer rdb.Close()
 
+	//kafka
+	kpub, err := kafka.NewProducer(cfg.Kafka.Brokers)
+	if err != nil {
+		log.Error("kafka_producer_error", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer kpub.Close()
+
 	userCache := redis.NewUserCache(rdb)
 	userRepo := mysql.NewUserRepo(db)
-	userSvc := userapp.New(userRepo, userCache, cfg.Redis.UserTTL)
+	userSvc := userapp.New(userRepo, userCache, cfg.Redis.UserTTL, kpub, cfg.Kafka.UserTopic)
 
 	userHandler := handler.NewUserHandler(userSvc)
 

@@ -17,8 +17,15 @@ type Config struct {
 	Log  LogConfig  `koanf:"log"`
 	DB   DBConfig   `koanf:"db"`
 	Redis RedisConfig `koanf:"redis"`
+	Kafka KafkaConfig `koanf:"kafka"`
 
 }
+
+type KafkaConfig struct {
+	Brokers   []string `koanf:"brokers"`
+	UserTopic string   `koanf:"user_topic"`
+}
+
 
 type RedisConfig struct {
 	Addr     string        `koanf:"addr"`
@@ -116,9 +123,17 @@ func Load(path string) (Config, error) {
 	if cfg.Redis.Addr == "" { 
 		cfg.Redis.Addr = "127.0.0.1:6379" 
 	}
-	
+
 	if cfg.Redis.UserTTL == 0 { 
 		cfg.Redis.UserTTL = 10 * time.Minute 
+	}
+
+	//kafka
+	if len(cfg.Kafka.Brokers) == 0 { 
+		cfg.Kafka.Brokers = []string{"127.0.0.1:9092"} 
+	}
+	if cfg.Kafka.UserTopic == "" { 
+		cfg.Kafka.UserTopic = "user.events" 
 	}
 
 

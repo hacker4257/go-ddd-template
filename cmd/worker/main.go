@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hacker4257/go-ddd-template/internal/infra/mq/kafka"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/config"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/logger"
 )
@@ -23,6 +24,16 @@ func main() {
 		slog.String("env", cfg.App.Env),
 		slog.String("proc", "worker"),
 	)
+
+	kpub, err := kafka.NewProducer(cfg.Kafka.Brokers)
+	if err != nil {
+		log.Error("kafka_producer_error", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer kpub.Close()
+
+	log.Info("worker_ready")
+
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
