@@ -13,6 +13,10 @@ import (
 	httpapi "github.com/hacker4257/go-ddd-template/internal/api/http"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/config"
 	"github.com/hacker4257/go-ddd-template/internal/pkg/logger"
+	userapp "github.com/hacker4257/go-ddd-template/internal/app/user"
+	"github.com/hacker4257/go-ddd-template/internal/api/http/handler"
+	"github.com/hacker4257/go-ddd-template/internal/infra/persistence/mysql"
+
 )
 
 func main() {
@@ -26,9 +30,26 @@ func main() {
 		slog.String("env", cfg.App.Env),
 	)
 
+	db, err := mysql.Open(mysql.Config{
+		DSN:             cfg.DB.MySQL.DSN,
+		MaxOpenConns:    cfg.DB.MySQL.MaxOpenConns,
+		MaxIdleConns:    cfg.DB.MySQL.MaxIdleConns,
+		ConnMaxLifetime: cfg.DB.MySQL.ConnMaxLifetime,
+	})
+	if err != nil {
+		log.Error("db_open_error", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	userRepo := mysql.NewUserRepo(db)
+	userSvc := userapp.New(userRepo)
+	userHandler := handler.NewUserHandler(userSvc)
+
+
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler:      httpapi.NewRouter(log),
+		Handler: httpapi.NewRouter(log, userHandler),
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,

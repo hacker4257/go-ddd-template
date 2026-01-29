@@ -15,12 +15,25 @@ type Config struct {
 	App  AppConfig  `koanf:"app"`
 	HTTP HTTPConfig `koanf:"http"`
 	Log  LogConfig  `koanf:"log"`
+	DB   DBConfig   `koanf:"db"`
 }
 
 type AppConfig struct {
 	Name string `koanf:"name"`
 	Env  string `koanf:"env"`
 }
+
+type DBConfig struct {
+	MySQL MySQLConfig `koanf:"mysql"`
+}
+
+type MySQLConfig struct {
+	DSN             string        `koanf:"dsn"`
+	MaxOpenConns    int           `koanf:"max_open_conns"`
+	MaxIdleConns    int           `koanf:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `koanf:"conn_max_lifetime"`
+}
+
 
 type HTTPConfig struct {
 	Addr         string        `koanf:"addr"`
@@ -76,6 +89,19 @@ func Load(path string) (Config, error) {
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
 	}
+
+	if cfg.DB.MySQL.MaxOpenConns == 0 { 
+		cfg.DB.MySQL.MaxOpenConns = 10 
+	}
+
+	if cfg.DB.MySQL.MaxIdleConns == 0 { 
+		cfg.DB.MySQL.MaxIdleConns = 5 
+	}
+	
+	if cfg.DB.MySQL.ConnMaxLifetime == 0 { 
+		cfg.DB.MySQL.ConnMaxLifetime = 30 * time.Minute 
+	}
+
 
 	return cfg, nil
 }

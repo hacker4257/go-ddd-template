@@ -11,7 +11,7 @@ import (
 	appmw "github.com/hacker4257/go-ddd-template/internal/api/http/middleware"
 )
 
-func NewRouter(log *slog.Logger) http.Handler {
+func NewRouter(log *slog.Logger, uh *handler.UserHandler) http.Handler {
 	r := chi.NewRouter()
 
 	// 基础稳定中间件
@@ -30,6 +30,11 @@ func NewRouter(log *slog.Logger) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("go-ddd-template"))
 	})
+
+	r.Route("/users", func(r chi.Router) {
+        r.Post("/", uh.Create)
+        r.Get("/{id}", uh.Get)
+    })
 
 	return r
 }

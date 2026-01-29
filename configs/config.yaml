@@ -10,3 +10,11 @@ http:
 
 log:
   level: info
+
+
+db:
+  mysql:
+    dsn: "root:password@tcp(127.0.0.1:3306)/go_ddd?parseTime=true&loc=Local&multiStatements=true"
+    max_open_conns: 10
+    max_idle_conns: 5
+    conn_max_lifetime: 30m
